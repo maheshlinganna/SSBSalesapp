@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4F46E5">
+  <title>Sales Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow-x: hidden; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Lucide Icons (simplified versions)
+    const Plus = () => <span style={{fontSize: '20px'}}>➕</span>;
+    const Download = () => <span style={{fontSize: '20px'}}>📥</span>;
+    const Trash2 = () => <span style={{fontSize: '18px'}}>🗑️</span>;
+    const Search = () => <span style={{fontSize: '20px'}}>🔍</span>;
+    const Filter = () => <span style={{fontSize: '20px'}}>⚙️</span>;
+    const X = () => <span style={{fontSize: '18px'}}>❌</span>;
+    const DollarSign = () => <span style={{fontSize: '20px'}}>💰</span>;
+
+    function SalesTracker() {
+      const [sales, setSales] = useState([]);
+      const [showForm, setShowForm] = useState(false);
+      const [searchTerm, setSearchTerm] = useState('');
+      const [filterPayment, setFilterPayment] = useState('all');
+      const [formData, setFormData] = useState({
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        soldTo: '',
+        paymentMode: 'cash',
+        items: [],
+        comments: ''
+      });
+      const [predefinedItems, setPredefinedItems] = useState([
+        { name: '6" Bricks', price: 8 },
+        { name: '4" Bricks', price: 6 },
+        { name: 'Soil Brick', price: 5 },
+        { name: 'M Sand', price: 2500 },
+        { name: 'P Sand', price: 2200 },
+        { name: 'Dust', price: 1800 },
+        { name: 'Cement', price: 350 },
+        { name: '20mm Jalli', price: 3000 },
+        { name: '12mm Jalli', price: 2800 },
+        { name: '6mm Jalli', price: 2600 },
+        { name: 'JD', price: 5000 }
+      ]);
+      const [showPriceManager, setShowPriceManager] = useState(false);
+      const [newItemName, setNewItemName] = useState('');
+      const [currentItem, setCurrentItem] = useState({
+        name: '',
+        quantity: '',
+        price: '',
+        isCustom: false
+      });
+
+      useEffect(() => {
+        const savedSales = localStorage.getItem('sales');
+        if (savedSales) setSales(JSON.parse(savedSales));
+        
+        const savedItems = localStorage.getItem('items');
+        if (savedItems) setPredefinedItems(JSON.parse(savedItems));
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('sales', JSON.stringify(sales));
+      }, [sales]);
+
+      useEffect(() => {
+        localStorage.setItem('items', JSON.stringify(predefinedItems));
+      }, [predefinedItems]);
+
+      const addItemToSale = () => {
+        if (!currentItem.name || !currentItem.quantity) {
+          alert('Please enter item name and quantity');
+          return;
+        }
+
+        let pricePerUnit;
+        if (currentItem.isCustom) {
+          if (!currentItem.price) {
+            alert('Please enter price for custom item');
+            return;
+          }
+          pricePerUnit = parseFloat(currentItem.price) || 0;
+        } else {
+          const itemData = predefinedItems.find(item => item.name === currentItem.name);
+          pricePerUnit = itemData ? itemData.price : 0;
+        }
+
+        const newItem = {
+          id: Date.now(),
+          name: currentItem.name,
+          quantity: parseFloat(currentItem.quantity) || 0,
+          price: pricePerUnit,
+          total: (parseFloat(currentItem.quantity) * pricePerUnit) || 0
+        };
+
+        setFormData({
+          ...formData,
+          items: [...formData.items, newItem]
+        });
+
+        setCurrentItem({
+          name: '',
+          quantity: '',
+          price: '',
+          isCustom: false
+        });
+      };
+
+      const removeItemFromSale = (itemId) => {
+        setFormData({
+          ...formData,
+          items: formData.items.filter(item => item.id !== itemId)
+        });
+      };
+
+      const getTotalAmount = () => {
+        return formData.items.reduce((sum, item) => sum + item.total, 0);
+      };
+
+      const addSale = () => {
+        if (!formData.soldTo || formData.items.length === 0 || !formData.date || !formData.time) {
+          alert('Please fill in customer name, date, time, and add at least one item');
+          return;
+        }
+
+        const newSale = {
+          id: Date.now(),
+          date: formData.date,
+          time: formData.time,
+          soldTo: formData.soldTo,
+          paymentMode: formData.paymentMode,
+          items: formData.items,
+          totalAmount: getTotalAmount(),
+          comments: formData.comments
+        };
+        
+        setSales([newSale, ...sales]);
+        setFormData({
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toTimeString().slice(0, 5),
+          soldTo: '',
+          paymentMode: 'cash',
+          items: [],
+          comments: ''
+        });
+        setCurrentItem({
+          name: '',
+          quantity: '',
+          price: '',
+          isCustom: false
+        });
+        setShowForm(false);
+      };
+
+      const addNewItem = () => {
+        if (!newItemName.trim()) {
+          alert('Please enter an item name');
+          return;
+        }
+        if (predefinedItems.some(item => item.name === newItemName.trim())) {
+          alert('Item already exists');
+          return;
+        }
+        const newItem = { name: newItemName.trim(), price: 0 };
+        setPredefinedItems([...predefinedItems, newItem]);
+        setNewItemName('');
+      };
+
+      const deleteItem = (itemName) => {
+        if (window.confirm(`Remove "${itemName}" from the list?`)) {
+          setPredefinedItems(predefinedItems.filter(i => i.name !== itemName));
+        }
+      };
+
+      const updateItemPrice = (itemName, newPrice) => {
+        setPredefinedItems(predefinedItems.map(item => 
+          item.name === itemName ? { ...item, price: parseFloat(newPrice) || 0 } : item
+        ));
+      };
+
+      const getCurrentPrice = () => {
+        if (!currentItem.name) return 0;
+        if (currentItem.isCustom) return parseFloat(currentItem.price) || 0;
+        const item = predefinedItems.find(i => i.name === currentItem.name);
+        return item ? item.price : 0;
+      };
+
+      const deleteSale = (id) => {
+        if (window.confirm('Are you sure you want to delete this entry?')) {
+          setSales(sales.filter(sale => sale.id !== id));
+        }
+      };
+
+      const exportToCSV = () => {
+        const headers = ['Date', 'Time', 'Sold To', 'Payment Mode', 'Items', 'Total Amount', 'Comments'];
+        const csvData = sales.map(sale => [
+          sale.date,
+          sale.time,
+          sale.soldTo,
+          sale.paymentMode.toUpperCase(),
+          sale.items.map(item => `${item.name} (${item.quantity} x ₹${item.price})`).join('; '),
+          sale.totalAmount,
+          sale.comments
+        ]);
+        
+        const csv = [
+          headers.join(','),
+          ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sales_report_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      };
+
+      const filteredSales = sales.filter(sale => {
+        const matchesSearch = sale.soldTo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             sale.items.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesPayment = filterPayment === 'all' || sale.paymentMode === filterPayment;
+        return matchesSearch && matchesPayment;
+      });
+
+      const totalAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h1 className="text-3xl font-bold text-indigo-900 mb-2">Sales Tracker</h1>
+              <p className="text-gray-600">Track your construction materials sales</p>
+            </div>
+
+            {/* Action Bar */}
+            <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+              <div className="flex flex-wrap gap-3 items-center justify-between">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowForm(!showForm)}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition"
+                  >
+                    <Plus />
+                    Add New Sale
+                  </button>
+                  
+                  <button
+                    onClick={() => setShowPriceManager(!showPriceManager)}
+                    className="bg-amber-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-amber-700 transition"
+                  >
+                    <DollarSign />
+                    Manage Prices
+                  </button>
+                </div>
+                
+                <button
+                  onClick={exportToCSV}
+                  disabled={sales.length === 0}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Download />
+                  Export CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Price Manager */}
+            {showPriceManager && (
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">Manage Item Prices</h2>
+                  <button onClick={() => setShowPriceManager(false)} className="text-gray-500"><X /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {predefinedItems.map((item, idx) => (
+                    <div key={idx} className="border border-gray-300 rounded-lg p-4">
+                      <div className="flex justify-between mb-2">
+                        <label className="font-medium">{item.name}</label>
+                        <button onClick={() => deleteItem(item.name)} className="text-red-500"><Trash2 /></button>
+                      </div>
+                      <div className="flex gap-2">
+                        <span>₹</span>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => updateItemPrice(item.name, e.target.value)}
+                          className="flex-1 px-3 py-2 border rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <input
+                    type="text"
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    placeholder="New item name"
+                    className="flex-1 px-4 py-2 border rounded-lg"
+                  />
+                  <button onClick={addNewItem} className="bg-indigo-600 text-white px-6 py-2 rounded-lg">
+                    Add Item
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm">Total Sales</p>
+                  <p className="text-2xl font-bold">{filteredSales.length}</p>
+                </div>
+                <div>
+                  <p className="text-sm">Total Amount</p>
+                  <p className="text-2xl font-bold">₹{totalAmount.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm">Average</p>
+                  <p className="text-2xl font-bold">
+                    ₹{filteredSales.length > 0 ? (totalAmount / filteredSales.length).toFixed(2) : '0.00'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sales List */}
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              {filteredSales.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No sales recorded yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {filteredSales.map((sale) => (
+                    <div key={sale.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between mb-2">
+                        <div>
+                          <strong>{sale.soldTo}</strong>
+                          <div className="text-sm text-gray-600">{sale.date} {sale.time}</div>
+                        </div>
+                        <button onClick={() => deleteSale(sale.id)} className="text-red-600"><Trash2 /></button>
+                      </div>
+                      <div className="space-y-1 mb-2">
+                        {sale.items.map((item, idx) => (
+                          <div key={idx} className="text-sm">
+                            {item.name} ({item.quantity} × ₹{item.price}) = ₹{item.total.toFixed(2)}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          sale.paymentMode === 'cash' ? 'bg-green-100 text-green-800' :
+                          sale.paymentMode === 'credit' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {sale.paymentMode.toUpperCase()}
+                        </span>
+                        <strong className="text-lg">₹{sale.totalAmount.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SalesTracker />);
+  </script>
+</body>
+</html>
