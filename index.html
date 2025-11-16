@@ -3,38 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#4F46E5">
   <title>Sales Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow-x: hidden; }
-  </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">Loading...</div>
   
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // Lucide Icons (simplified versions)
-    const Plus = () => <span style={{fontSize: '20px'}}>➕</span>;
-    const Download = () => <span style={{fontSize: '20px'}}>📥</span>;
-    const Trash2 = () => <span style={{fontSize: '18px'}}>🗑️</span>;
-    const Search = () => <span style={{fontSize: '20px'}}>🔍</span>;
-    const Filter = () => <span style={{fontSize: '20px'}}>⚙️</span>;
-    const X = () => <span style={{fontSize: '18px'}}>❌</span>;
-    const DollarSign = () => <span style={{fontSize: '20px'}}>💰</span>;
-
     function SalesTracker() {
       const [sales, setSales] = useState([]);
       const [showForm, setShowForm] = useState(false);
-      const [searchTerm, setSearchTerm] = useState('');
-      const [filterPayment, setFilterPayment] = useState('all');
       const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         time: new Date().toTimeString().slice(0, 5),
@@ -54,4 +38,518 @@
         { name: '20mm Jalli', price: 3000 },
         { name: '12mm Jalli', price: 2800 },
         { name: '6mm Jalli', price: 2600 },
-        { name:
+        { name: 'JD', price: 5000 }
+      ]);
+      const [showPriceManager, setShowPriceManager] = useState(false);
+      const [newItemName, setNewItemName] = useState('');
+      const [currentItem, setCurrentItem] = useState({
+        name: '',
+        quantity: '',
+        price: '',
+        isCustom: false
+      });
+
+      useEffect(() => {
+        try {
+          const savedSales = localStorage.getItem('sales');
+          if (savedSales) setSales(JSON.parse(savedSales));
+          
+          const savedItems = localStorage.getItem('items');
+          if (savedItems) setPredefinedItems(JSON.parse(savedItems));
+        } catch (e) {
+          console.log('Error loading data:', e);
+        }
+      }, []);
+
+      useEffect(() => {
+        try {
+          localStorage.setItem('sales', JSON.stringify(sales));
+        } catch (e) {
+          console.log('Error saving sales:', e);
+        }
+      }, [sales]);
+
+      useEffect(() => {
+        try {
+          localStorage.setItem('items', JSON.stringify(predefinedItems));
+        } catch (e) {
+          console.log('Error saving items:', e);
+        }
+      }, [predefinedItems]);
+
+      const addItemToSale = () => {
+        if (!currentItem.name || !currentItem.quantity) {
+          alert('Please enter item name and quantity');
+          return;
+        }
+
+        let pricePerUnit;
+        if (currentItem.isCustom) {
+          if (!currentItem.price) {
+            alert('Please enter price for custom item');
+            return;
+          }
+          pricePerUnit = parseFloat(currentItem.price) || 0;
+        } else {
+          const itemData = predefinedItems.find(item => item.name === currentItem.name);
+          pricePerUnit = itemData ? itemData.price : 0;
+        }
+
+        const newItem = {
+          id: Date.now(),
+          name: currentItem.name,
+          quantity: parseFloat(currentItem.quantity) || 0,
+          price: pricePerUnit,
+          total: (parseFloat(currentItem.quantity) * pricePerUnit) || 0
+        };
+
+        setFormData({
+          ...formData,
+          items: [...formData.items, newItem]
+        });
+
+        setCurrentItem({
+          name: '',
+          quantity: '',
+          price: '',
+          isCustom: false
+        });
+      };
+
+      const removeItemFromSale = (itemId) => {
+        setFormData({
+          ...formData,
+          items: formData.items.filter(item => item.id !== itemId)
+        });
+      };
+
+      const getTotalAmount = () => {
+        return formData.items.reduce((sum, item) => sum + item.total, 0);
+      };
+
+      const addSale = () => {
+        if (!formData.soldTo || formData.items.length === 0) {
+          alert('Please fill in customer name and add at least one item');
+          return;
+        }
+
+        const newSale = {
+          id: Date.now(),
+          date: formData.date,
+          time: formData.time,
+          soldTo: formData.soldTo,
+          paymentMode: formData.paymentMode,
+          items: formData.items,
+          totalAmount: getTotalAmount(),
+          comments: formData.comments
+        };
+        
+        setSales([newSale, ...sales]);
+        setFormData({
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toTimeString().slice(0, 5),
+          soldTo: '',
+          paymentMode: 'cash',
+          items: [],
+          comments: ''
+        });
+        setCurrentItem({
+          name: '',
+          quantity: '',
+          price: '',
+          isCustom: false
+        });
+        setShowForm(false);
+      };
+
+      const addNewItem = () => {
+        if (!newItemName.trim()) {
+          alert('Please enter an item name');
+          return;
+        }
+        if (predefinedItems.some(item => item.name === newItemName.trim())) {
+          alert('Item already exists');
+          return;
+        }
+        setPredefinedItems([...predefinedItems, { name: newItemName.trim(), price: 0 }]);
+        setNewItemName('');
+      };
+
+      const deleteItem = (itemName) => {
+        if (window.confirm('Remove "' + itemName + '" from the list?')) {
+          setPredefinedItems(predefinedItems.filter(i => i.name !== itemName));
+        }
+      };
+
+      const updateItemPrice = (itemName, newPrice) => {
+        setPredefinedItems(predefinedItems.map(item => 
+          item.name === itemName ? { ...item, price: parseFloat(newPrice) || 0 } : item
+        ));
+      };
+
+      const getCurrentPrice = () => {
+        if (!currentItem.name) return 0;
+        if (currentItem.isCustom) return parseFloat(currentItem.price) || 0;
+        const item = predefinedItems.find(i => i.name === currentItem.name);
+        return item ? item.price : 0;
+      };
+
+      const deleteSale = (id) => {
+        if (window.confirm('Delete this sale?')) {
+          setSales(sales.filter(sale => sale.id !== id));
+        }
+      };
+
+      const exportToCSV = () => {
+        const headers = ['Date', 'Time', 'Sold To', 'Payment', 'Items', 'Total', 'Comments'];
+        const csvData = sales.map(sale => [
+          sale.date,
+          sale.time,
+          sale.soldTo,
+          sale.paymentMode.toUpperCase(),
+          sale.items.map(item => item.name + ' (' + item.quantity + 'x' + item.price + ')').join('; '),
+          sale.totalAmount,
+          sale.comments || ''
+        ]);
+        
+        const csv = [
+          headers.join(','),
+          ...csvData.map(row => row.map(cell => '"' + cell + '"').join(','))
+        ].join('\n');
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sales_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            
+            {/* Header */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-4">
+              <h1 className="text-2xl font-bold text-indigo-900">Sales Tracker</h1>
+              <p className="text-gray-600 text-sm">Construction Materials</p>
+            </div>
+
+            {/* Buttons */}
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowForm(!showForm)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+                >
+                  {showForm ? '✕ Close' : '➕ Add Sale'}
+                </button>
+                
+                <button
+                  onClick={() => setShowPriceManager(!showPriceManager)}
+                  className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700"
+                >
+                  💰 Prices
+                </button>
+                
+                <button
+                  onClick={exportToCSV}
+                  disabled={sales.length === 0}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:bg-gray-400"
+                >
+                  📥 Export
+                </button>
+              </div>
+            </div>
+
+            {/* Price Manager */}
+            {showPriceManager && (
+              <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold">Manage Prices</h2>
+                  <button onClick={() => setShowPriceManager(false)} className="text-2xl">✕</button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {predefinedItems.map((item, idx) => (
+                    <div key={idx} className="border rounded p-3">
+                      <div className="flex justify-between mb-2">
+                        <span className="font-medium text-sm">{item.name}</span>
+                        <button onClick={() => deleteItem(item.name)} className="text-red-500 text-sm">🗑️</button>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <span>₹</span>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => updateItemPrice(item.name, e.target.value)}
+                          className="flex-1 px-2 py-1 border rounded text-sm"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t pt-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      placeholder="New item name"
+                      className="flex-1 px-3 py-2 border rounded text-sm"
+                    />
+                    <button onClick={addNewItem} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm">
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add Sale Form */}
+            {showForm && (
+              <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
+                <h2 className="text-lg font-bold mb-3">New Sale</h2>
+                
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                        className="w-full px-2 py-1 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1">Time</label>
+                      <input
+                        type="time"
+                        value={formData.time}
+                        onChange={(e) => setFormData({...formData, time: e.target.value})}
+                        className="w-full px-2 py-1 border rounded text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Customer Name</label>
+                    <input
+                      type="text"
+                      value={formData.soldTo}
+                      onChange={(e) => setFormData({...formData, soldTo: e.target.value})}
+                      className="w-full px-3 py-2 border rounded text-sm"
+                      placeholder="Customer name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Payment Mode</label>
+                    <select
+                      value={formData.paymentMode}
+                      onChange={(e) => setFormData({...formData, paymentMode: e.target.value})}
+                      className="w-full px-3 py-2 border rounded text-sm"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="credit">Credit</option>
+                      <option value="upi">UPI</option>
+                    </select>
+                  </div>
+
+                  {/* Add Items */}
+                  <div className="border-t pt-3">
+                    <h3 className="font-bold text-sm mb-2">Add Items</h3>
+                    
+                    <div className="bg-blue-50 p-3 rounded mb-3">
+                      <label className="flex items-center gap-2 text-xs mb-2">
+                        <input
+                          type="checkbox"
+                          checked={currentItem.isCustom}
+                          onChange={(e) => setCurrentItem({
+                            name: '',
+                            quantity: '',
+                            price: '',
+                            isCustom: e.target.checked
+                          })}
+                        />
+                        Manual Entry
+                      </label>
+
+                      {currentItem.isCustom ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={currentItem.name}
+                            onChange={(e) => setCurrentItem({...currentItem, name: e.target.value})}
+                            placeholder="Item name"
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              value={currentItem.quantity}
+                              onChange={(e) => setCurrentItem({...currentItem, quantity: e.target.value})}
+                              placeholder="Qty"
+                              className="px-2 py-1 border rounded text-sm"
+                            />
+                            <input
+                              type="number"
+                              value={currentItem.price}
+                              onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
+                              placeholder="Price"
+                              className="px-2 py-1 border rounded text-sm"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={currentItem.name}
+                            onChange={(e) => setCurrentItem({...currentItem, name: e.target.value})}
+                            className="px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="">Select...</option>
+                            {predefinedItems.map((item, idx) => (
+                              <option key={idx} value={item.name}>
+                                {item.name} (₹{item.price})
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            value={currentItem.quantity}
+                            onChange={(e) => setCurrentItem({...currentItem, quantity: e.target.value})}
+                            placeholder="Quantity"
+                            className="px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                      )}
+
+                      <button
+                        onClick={addItemToSale}
+                        className="w-full mt-2 bg-green-600 text-white py-2 rounded text-sm font-medium"
+                      >
+                        Add Item
+                      </button>
+                    </div>
+
+                    {/* Items List */}
+                    {formData.items.length > 0 && (
+                      <div className="bg-gray-50 p-3 rounded">
+                        {formData.items.map((item) => (
+                          <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded mb-2 text-sm">
+                            <div>
+                              <div className="font-medium">{item.name}</div>
+                              <div className="text-xs text-gray-600">{item.quantity} × ₹{item.price}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">₹{item.total.toFixed(2)}</span>
+                              <button onClick={() => removeItemFromSale(item.id)} className="text-red-500">✕</button>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center pt-2 border-t font-bold">
+                          <span>Total:</span>
+                          <span className="text-lg text-indigo-600">₹{getTotalAmount().toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Comments</label>
+                    <textarea
+                      value={formData.comments}
+                      onChange={(e) => setFormData({...formData, comments: e.target.value})}
+                      className="w-full px-3 py-2 border rounded text-sm"
+                      rows="2"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addSale}
+                      className="flex-1 bg-indigo-600 text-white py-2 rounded font-medium"
+                    >
+                      Save Sale
+                    </button>
+                    <button
+                      onClick={() => setShowForm(false)}
+                      className="flex-1 bg-gray-300 py-2 rounded font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg shadow p-4 mb-4">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-xs opacity-80">Sales</div>
+                  <div className="text-xl font-bold">{sales.length}</div>
+                </div>
+                <div>
+                  <div className="text-xs opacity-80">Total</div>
+                  <div className="text-xl font-bold">₹{sales.reduce((s, sale) => s + sale.totalAmount, 0).toFixed(0)}</div>
+                </div>
+                <div>
+                  <div className="text-xs opacity-80">Avg</div>
+                  <div className="text-xl font-bold">
+                    ₹{sales.length > 0 ? (sales.reduce((s, sale) => s + sale.totalAmount, 0) / sales.length).toFixed(0) : '0'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sales List */}
+            <div className="bg-white rounded-lg shadow p-4">
+              {sales.length === 0 ? (
+                <p className="text-center text-gray-500 py-8 text-sm">No sales yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {sales.map((sale) => (
+                    <div key={sale.id} className="border rounded p-3">
+                      <div className="flex justify-between mb-2">
+                        <div>
+                          <div className="font-bold">{sale.soldTo}</div>
+                          <div className="text-xs text-gray-600">{sale.date} {sale.time}</div>
+                        </div>
+                        <button onClick={() => deleteSale(sale.id)} className="text-red-500">🗑️</button>
+                      </div>
+                      <div className="space-y-1 mb-2">
+                        {sale.items.map((item, idx) => (
+                          <div key={idx} className="text-xs bg-gray-50 p-2 rounded">
+                            {item.name} - {item.quantity} × ₹{item.price} = ₹{item.total.toFixed(2)}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className={'px-2 py-1 rounded text-xs ' + 
+                          (sale.paymentMode === 'cash' ? 'bg-green-100 text-green-800' :
+                           sale.paymentMode === 'credit' ? 'bg-yellow-100 text-yellow-800' :
+                           'bg-blue-100 text-blue-800')}>
+                          {sale.paymentMode.toUpperCase()}
+                        </span>
+                        <span className="font-bold text-lg">₹{sale.totalAmount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SalesTracker />);
+  </script>
+</body>
+</html>
